@@ -1,4 +1,4 @@
-# Binaries
+# Binary
 
 This directory contains prebuilt binary of Nemo-desktop.
 
