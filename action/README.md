@@ -1,4 +1,4 @@
-# Add **Toggle Desktop Icons** functionality to the Nemo desktop context menu!
+## Add **Toggle Desktop Icons** functionality to the Nemo desktop context menu!
 
 The main component is:
 
