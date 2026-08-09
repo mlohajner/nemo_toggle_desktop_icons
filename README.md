@@ -67,21 +67,19 @@ Once the patched Nemo is installed, the script:
 ```text
 action/toggle-desktop-icons.sh
 ```
+provides a simple interface for controlling the new setting.  
+The usage is:
 
-provides a simple interface for controlling the new setting.
+```text
+toggle-desktop-icons.sh [true|false]
+```
 
 ### No argument — toggle
 
 ```bash
 toggle-desktop-icons.sh
 ```
-
-Toggles the current state:
-
-```text
-visible → hidden
-hidden  → visible
-```
+(Toggles the current state)
 
 ### Explicitly show icons
 
@@ -99,12 +97,6 @@ Invalid arguments are rejected:
 
 ```bash
 toggle-desktop-icons.sh something
-```
-
-The usage is:
-
-```text
-toggle-desktop-icons.sh [true|false]
 ```
 
 ## Nemo desktop context menu
@@ -209,33 +201,6 @@ Therefore, **the patched `icons-visible` key is the intended and recommended sol
 
 The shell script itself is intentionally simple and only depends on standard shell tools and GSettings.
 
-## Repository layout
-
-```text
-.
-├── action/
-│   ├── README.md
-│   ├── toggle-desktop-icons.nemo_action
-│   └── toggle-desktop-icons.sh
-├── patch/
-│   ├── README.md
-│   └── nemo-desktop-icons-visible.patch
-├── binary/
-│   ├── org.nemo.gschema.xml
-│   └── nemo-desktop
-├── LICENSE
-└── README.md
-```
-
-The important pieces are:
-
-| Component                        | Purpose                                           |
-| -------------------------------- | ------------------------------------------------- |
-| `patch/`                         | Adds `org.nemo.desktop/icons-visible` to Nemo     |
-| `action/toggle-desktop-icons.sh` | CLI/context-menu interface for toggling the icons |
-| `action/nemo_action`             | Nemo action definition                            |
-| `binary/`                        | Binary/package-related files                      |
-
 ## Why not just use `show-desktop-icons`?
 
 Because these are two different concepts:
@@ -255,5 +220,3 @@ show/hide the icons
         ↓
 keep nemo-desktop running
 ```
-
-### For a feature such as **"hide my desktop icons"**, the second behavior is what users actually expect.
