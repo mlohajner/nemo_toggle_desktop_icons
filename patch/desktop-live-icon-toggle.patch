@@ -1,0 +1,188 @@
+--- a/libnemo-private/org.nemo.gschema.xml	2026-08-09 19:59:24.241833736 +0000
++++ b/libnemo-private/org.nemo.gschema.xml	2026-08-09 19:55:22.583158430 +0000
+@@ -557,6 +557,11 @@
+       <summary>Deprecated: Allow Nemo to manage the desktop</summary>
+       <description>Deprecated: If this is set to true, Nemo will autostart and manage the desktop</description>
+     </key>
++    <key name="icons-visible" type="b">
++      <default>true</default>
++      <summary>Show or hide desktop icons in an already-running nemo-desktop</summary>
++      <description>Unlike the deprecated show-desktop-icons key, this key is not tied to nemo-desktop's session AutostartCondition, so toggling it does not start or stop the nemo-desktop process. It only shows or hides the icons within an already-running desktop window, leaving the window itself (and its background context menu) intact.</description>
++    </key>
+     <key name="use-desktop-grid" type="b">
+       <default>true</default>
+       <summary>Which desktop view type to use</summary>
+--- a/libnemo-private/nemo-global-preferences.h	2026-08-09 19:59:24.381833740 +0000
++++ b/libnemo-private/nemo-global-preferences.h	2026-08-09 19:55:22.719158433 +0000
+@@ -228,6 +228,7 @@
+ #define NEMO_PREFERENCES_DESKTOP_LAYOUT "desktop-layout"
+ #define NEMO_PREFERENCES_SHOW_ORPHANED_DESKTOP_ICONS "show-orphaned-desktop-icons"
+ #define NEMO_PREFERENCES_SHOW_DESKTOP   "show-desktop-icons"    /* DEPRECATED */
++#define NEMO_PREFERENCES_ICONS_VISIBLE   "icons-visible"
+ #define NEMO_PREFERENCES_USE_DESKTOP_GRID "use-desktop-grid"
+ #define NEMO_PREFERENCES_DESKTOP_HORIZONTAL_GRID_ADJUST "horizontal-grid-adjust"
+ #define NEMO_PREFERENCES_DESKTOP_VERTICAL_GRID_ADJUST "vertical-grid-adjust"
+--- a/src/nemo-desktop-icon-view.c	2026-08-09 19:59:24.477833742 +0000
++++ b/src/nemo-desktop-icon-view.c	2026-08-09 19:59:52.124286534 +0000
+@@ -193,6 +193,16 @@
+ 
+     g_assert (directory == nemo_view_get_model (view));
+ 
++    /* Deliberately NOT the deprecated show-desktop-icons key -- that one is
++     * tied to nemo-desktop's session AutostartCondition and killing the
++     * whole process is what breaks the background right-click menu in the
++     * first place. This key only gates whether files get added as icons;
++     * the container widget itself (and its context-click handling) is
++     * completely unaffected either way. */
++    if (!g_settings_get_boolean (nemo_desktop_preferences, NEMO_PREFERENCES_ICONS_VISIBLE)) {
++        return;
++    }
++
+     if (!should_show_file_on_current_monitor (view, file)) {
+         return;
+     }
+@@ -206,6 +216,36 @@
+ }
+ 
+ static void
++icons_visible_changed_callback (NemoDesktopIconView *desktop_icon_view)
++{
++    NemoIconContainer *icon_container;
++    NemoDirectory *directory;
++
++    icon_container = get_icon_container (desktop_icon_view);
++
++    if (g_settings_get_boolean (nemo_desktop_preferences, NEMO_PREFERENCES_ICONS_VISIBLE)) {
++        /* add_file() silently skipped every file while hidden, so the
++         * container has nothing to show. Rather than rely on force_reload
++         * (which only re-emits "files_added" for files NemoDirectory
++         * considers new/changed -- not reliable on a second toggle), walk
++         * the directory's already-known file list and call the add_file
++         * vfunc directly for each one, same as the initial load path. */
++        directory = nemo_view_get_model (NEMO_VIEW (desktop_icon_view));
++        if (directory != NULL) {
++            GList *files, *node;
++            files = nemo_directory_get_file_list (directory);
++            for (node = files; node != NULL; node = node->next) {
++                NEMO_VIEW_GET_CLASS (desktop_icon_view)->add_file (
++                    NEMO_VIEW (desktop_icon_view), NEMO_FILE (node->data), directory);
++            }
++            nemo_file_list_free (files);
++        }
++    } else {
++        nemo_icon_container_clear (icon_container);
++    }
++}
++
++static void
+ unrealized_callback (GtkWidget *widget, NemoDesktopIconView *desktop_icon_view)
+ {
+   g_return_if_fail (desktop_icon_view->details->root_window != NULL);
+@@ -268,6 +308,10 @@
+ 					      font_changed_callback,
+ 					      icon_view);
+ 
++	g_signal_handlers_disconnect_by_func (nemo_desktop_preferences,
++					      icons_visible_changed_callback,
++					      icon_view);
++
+ 	g_signal_handlers_disconnect_by_func (nemo_preferences,
+ 					      desktop_directory_changed_callback,
+ 					      NULL);
+@@ -527,6 +571,16 @@
+     nemo_icon_container_set_use_drop_shadows (icon_container, TRUE);
+     nemo_icon_view_container_set_sort_desktop (NEMO_ICON_VIEW_CONTAINER (icon_container), TRUE);
+ 
++    g_signal_connect_swapped (nemo_desktop_preferences, "changed::" NEMO_PREFERENCES_ICONS_VISIBLE,
++                  G_CALLBACK (icons_visible_changed_callback),
++                  desktop_icon_view);
++
++    /* Apply the current value immediately. The changed:: signal only fires
++     * when the setting changes, so without this initial call a freshly
++     * started nemo-desktop would not apply an already-false value. */
++    icons_visible_changed_callback (desktop_icon_view);
++
++
+     /* Do a reload on the desktop if we don't have FAM, a smarter
+      * way to keep track of the items on the desktop.
+      */
+--- a/src/nemo-desktop-icon-grid-view.c	2026-08-09 19:59:24.581833744 +0000
++++ b/src/nemo-desktop-icon-grid-view.c	2026-08-09 19:55:23.063158441 +0000
+@@ -253,6 +253,15 @@
+ 
+     g_assert (directory == nemo_view_get_model (view));
+ 
++    /* Deliberately NOT the deprecated show-desktop-icons key -- see the
++     * matching guard in nemo-desktop-icon-view.c for the full rationale.
++     * NemoDesktopIconGridView is the class actually instantiated when
++     * use-desktop-grid is TRUE (the default), so it needs its own copy
++     * of this guard -- the plain NemoDesktopIconView guard never runs. */
++    if (!g_settings_get_boolean (nemo_desktop_preferences, NEMO_PREFERENCES_ICONS_VISIBLE)) {
++        return;
++    }
++
+     if (!should_show_file_on_current_monitor (view, file)) {
+         return;
+     }
+@@ -320,6 +329,36 @@
+ }
+ 
+ static void
++icons_visible_changed_callback (NemoDesktopIconGridView *desktop_icon_grid_view)
++{
++    NemoIconContainer *icon_container;
++    NemoDirectory *directory;
++
++    icon_container = get_icon_container (desktop_icon_grid_view);
++
++    if (g_settings_get_boolean (nemo_desktop_preferences, NEMO_PREFERENCES_ICONS_VISIBLE)) {
++        /* add_file() silently skipped every file while hidden, so the
++         * container has nothing to show. Rather than rely on force_reload
++         * (which only re-emits "files_added" for files NemoDirectory
++         * considers new/changed -- not reliable on a second toggle), walk
++         * the directory's already-known file list and call the add_file
++         * vfunc directly for each one, same as the initial load path. */
++        directory = nemo_view_get_model (NEMO_VIEW (desktop_icon_grid_view));
++        if (directory != NULL) {
++            GList *files, *node;
++            files = nemo_directory_get_file_list (directory);
++            for (node = files; node != NULL; node = node->next) {
++                NEMO_VIEW_GET_CLASS (desktop_icon_grid_view)->add_file (
++                    NEMO_VIEW (desktop_icon_grid_view), NEMO_FILE (node->data), directory);
++            }
++            nemo_file_list_free (files);
++        }
++    } else {
++        nemo_icon_container_clear (icon_container);
++    }
++}
++
++static void
+ nemo_desktop_icon_grid_view_dispose (GObject *object)
+ {
+ 	NemoDesktopIconGridView *icon_view;
+@@ -352,6 +391,10 @@
+ 					      nemo_view_update_menus,
+ 					      icon_view);
+ 
++	g_signal_handlers_disconnect_by_func (nemo_desktop_preferences,
++					      icons_visible_changed_callback,
++					      icon_view);
++
+ 	G_OBJECT_CLASS (nemo_desktop_icon_grid_view_parent_class)->dispose (object);
+ }
+ 
+@@ -582,6 +625,13 @@
+     nemo_icon_container_set_use_drop_shadows (icon_container, TRUE);
+     nemo_icon_view_grid_container_set_sort_desktop (NEMO_ICON_VIEW_GRID_CONTAINER (icon_container), TRUE);
+ 
++    g_signal_connect_swapped (nemo_desktop_preferences, "changed::" NEMO_PREFERENCES_ICONS_VISIBLE,
++                  G_CALLBACK (icons_visible_changed_callback), desktop_icon_grid_view);
++
++    /* Apply the current value immediately -- see the matching comment in
++     * nemo-desktop-icon-view.c's constructed() for why this is needed. */
++    icons_visible_changed_callback (desktop_icon_grid_view);
++
+     /* Do a reload on the desktop if we don't have FAM, a smarter
+      * way to keep track of the items on the desktop.
+      */
