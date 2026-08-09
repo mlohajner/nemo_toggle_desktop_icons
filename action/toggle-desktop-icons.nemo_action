@@ -1,0 +1,9 @@
+[Nemo Action]
+Active=true
+Name=Toggle Desktop Icons
+Comment=Show or hide desktop icons
+Exec=<toggle-desktop-icons.sh>
+Selection=none
+Extensions=any;
+Icon-Name=view-grid-symbolic
+Conditions=desktop;
