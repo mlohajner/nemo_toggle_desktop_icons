@@ -1,7 +1,3 @@
-# nemo-desktop-icons-visible patch
-
-Patch for Nemo that adds a separate GSettings key for controlling the visibility of desktop icons without disabling `nemo-desktop`.
-
 ## The patch adds a new GSettings key:
 
 ```text
