@@ -1,6 +1,4 @@
-# nemo_toggle_desktop_icons
-
-Toggle Nemo desktop icons without disabling `nemo-desktop`.
+# Toggle Nemo desktop icons without disabling `nemo-desktop`.
 
 This project adds a proper way to **show/hide desktop icons in `nemo-desktop` while keeping the desktop itself alive and usable**.
 
