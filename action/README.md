@@ -1,6 +1,4 @@
-# Nemo Desktop Icons Action
-
-This directory contains the files needed to add **Toggle Desktop Icons** functionality to the Nemo desktop context menu.
+# Add **Toggle Desktop Icons** functionality to the Nemo desktop context menu!
 
 The main component is:
 
