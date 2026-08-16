@@ -1,4 +1,4 @@
-<h1> <img src="nemo.png" width="40" valign="middle" alt="Nemo icon"> Toggle Nemo desktop icons without disabling `nemo-desktop`. </h1>
+<h2> <img src="nemo.png" width="40" valign="middle" alt="Nemo icon"> Toggle Nemo desktop icons without disabling `nemo-desktop`. </h2>
 
 This project adds a proper way to **show/hide desktop icons in `nemo-desktop` while keeping the desktop itself alive and usable**.
 
